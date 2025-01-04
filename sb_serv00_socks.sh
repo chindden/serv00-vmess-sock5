@@ -124,7 +124,7 @@ read_vless_reality_variables() {
     done
 
     # 设置默认域名为 www.speedtest.com
-    default_domain="www.speedtest.com"
+    default_domain="www.speedtest.net"
     reading "请输入 Reality 的伪装域名 (留空将使用默认域名 $default_domain): " reality_domain
     if [[ -z "$reality_domain" ]]; then
         reality_domain="$default_domain"
