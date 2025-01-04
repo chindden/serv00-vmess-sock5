@@ -27,15 +27,12 @@ export ARGO_DOMAIN=${ARGO_DOMAIN:-''}
 export ARGO_AUTH=${ARGO_AUTH:-''} 
 export vmess_port=${vmess_port:-'40000'}
 export hy2_port=${hy2_port:-'41000'}
-export socks_port=${socks_port:-'42000'}
-export socks_user=${socks_user:-'abc123'}
-export socks_pass=${socks_pass:-'abc456'}
+export vless_port=${vless_port:-'42000'}
 export CFIP=${CFIP:-'fan.yutian.us.kg'} 
 export CFPORT=${CFPORT:-'443'} 
 
 # 定义文件下载地址
 SB_WEB_ARMURL="https://github.com/eooce/test/releases/download/arm64/sb"
-# AG_BOT_ARMURL="https://github.com/eooce/test/releases/download/arm64/bot13"
 AG_BOT_ARMURL="https://github.com/qmsdh/serv00-vmess-sock5/releases/download/arm64/cloudflared_arm64"
 NZ_NPM_ARMURL="https://github.com/eooce/test/releases/download/ARM/swith"
 SB_WEB_X86URL="https://00.2go.us.kg/web"
@@ -49,7 +46,7 @@ REBOOT_URL="https://raw.githubusercontent.com/qmsdh/serv00-vmess-sock5/main/rebo
 
 # 安装singbox
 install_singbox() {
-echo -e "${yellow}本脚本同时四协议共存${purple}(vmess,vmess-ws-tls(argo),hysteria2,socks5)${re}"
+echo -e "${yellow}本脚本同时四协议共存${purple}(vmess,vmess-ws-tls(argo),hysteria2,vless+reality)${re}"
 echo -e "${yellow}开始运行前，请确保在面板${purple}已开放3个端口，两个tcp端口和一个udp端口${re}"
 echo -e "${yellow}面板${purple}Additional services中的Run your own applications${yellow}已开启为${purple}Enabled${yellow}状态${re}"
 green "安装完成后，可在用户根目录输入 \`bash sb00.sh\` 再次进入主菜单"
@@ -59,7 +56,7 @@ reading "\n确定继续安装吗？【y/n】: " choice
         cd "${WORKDIR}"
         read_vmess_port
         read_hy2_port
-        read_socks_variables
+        read_vless_reality_variables
         argo_configure
         read_nz_variables
         generate_config
@@ -74,7 +71,7 @@ reading "\n确定继续安装吗？【y/n】: " choice
   esac
 }
 
-#设置vmess端口
+# 设置vmess端口
 read_vmess_port() {
     while true; do
         reading "请输入vmess端口 (面板开放的tcp端口): " vmess_port
@@ -100,37 +97,39 @@ read_hy2_port() {
     done
 }
 
-# 设置socks5端口、用户名、密码
-read_socks_variables() {
+# 设置 VLESS + Reality 端口、UUID 和伪装域名
+read_vless_reality_variables() {
     while true; do
-        reading "请输入socks端口 (面板开放的TCP端口): " socks_port
-        if [[ "$socks_port" =~ ^[0-9]+$ ]] && [ "$socks_port" -ge 1 ] && [ "$socks_port" -le 65535 ]; then
-            green "你的socks端口为: $socks_port"
+        reading "请输入 VLESS + Reality 端口 (面板开放的 TCP 端口): " vless_port
+        if [[ "$vless_port" =~ ^[0-9]+$ ]] && [ "$vless_port" -ge 1 ] && [ "$vless_port" -le 65535 ]; then
+            green "你的 VLESS + Reality 端口为: $vless_port"
             break
         else
-            yellow "输入错误，请重新输入面板开放的TCP端口"
+            yellow "输入错误，请重新输入面板开放的 TCP 端口"
         fi
     done
 
     while true; do
-        reading "请输入socks用户名: " socks_user
-        if [[ ! -z "$socks_user" ]]; then
-            green "你的socks用户名为: $socks_user"
+        reading "请输入 VLESS 的 UUID (留空将使用默认 UUID): " vless_uuid
+        if [[ -z "$vless_uuid" ]]; then
+            vless_uuid="$UUID"  # 使用默认的 UUID
+            green "你的 VLESS UUID 为: $vless_uuid"
+            break
+        elif [[ "$vless_uuid" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then
+            green "你的 VLESS UUID 为: $vless_uuid"
             break
         else
-            yellow "用户名不能为空，请重新输入"
+            yellow "UUID 格式错误，请输入有效的 UUID"
         fi
     done
 
-    while true; do
-        reading "请输入socks密码，不能包含:和@符号: " socks_pass
-        if [[ ! -z "$socks_pass" && ! "$socks_pass" =~ [:@] ]]; then
-            green "你的socks密码为: $socks_pass"
-            break
-        else
-            yellow "密码不能为空或包含非法字符(:和@)，请重新输入"
-        fi
-    done
+    # 设置默认域名为 www.speedtest.com
+    default_domain="www.speedtest.com"
+    reading "请输入 Reality 的伪装域名 (留空将使用默认域名 $default_domain): " reality_domain
+    if [[ -z "$reality_domain" ]]; then
+        reality_domain="$default_domain"
+    fi
+    green "你的 Reality 伪装域名为: $reality_domain"
 }
 
 # 设置 argo 隧道域名、json 或 token
@@ -222,7 +221,7 @@ EOF
   chmod +x "${WORKDIR}/nezha.sh"
 }
 
-# 下载singbo文件
+# 下载singbox文件
 download_singbox() {
   ARCH=$(uname -m) && DOWNLOAD_DIR="." && mkdir -p "${DOWNLOAD_DIR}" && FILE_INFO=()
   if [ "$ARCH" == "arm" ] || [ "$ARCH" == "arm64" ] || [ "$ARCH" == "aarch64" ]; then
@@ -362,7 +361,7 @@ get_ip() {
   echo "$ip"
 }
 
-# 生成节点链接并写入到list.txt，同时检查 socks5 连接是否有效
+# 生成节点链接并写入到list.txt
 get_links(){
 argodomain=$(get_argodomain)
 echo -e "\e[1;32mArgoDomain:\e[1;35m${argodomain}\e[0m\n"
@@ -378,23 +377,12 @@ vmess://$(echo "{ \"v\": \"2\", \"ps\": \"$ISP\", \"add\": \"$CFIP\", \"port\": 
 
 hysteria2://$UUID@$IP:$hy2_port/?sni=www.bing.com&alpn=h3&insecure=1#$ISP
 
-socks5://$socks_user:$socks_pass@$IP:$socks_port
+vless://$vless_uuid@$IP:$vless_port?type=tcp&security=reality&sni=$reality_domain&flow=xtls-rprx-vision#$ISP
 EOF
 cat list.txt
 purple "\n$WORKDIR/list.txt 节点文件已保存"
 green "安装完成"
 sleep 2
-
-response=$(curl -s ip.sb --socks5 "$socks_user:$socks_pass@localhost:$socks_port")
-  if [[ $? -eq 0 ]]; then
-    if [[ "$response" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-      green "SOCKS5 连接有效，服务器 IP 地址为: $response"
-    else
-      red "SOCKS5 连接无效，返回信息: $response"
-    fi
-  else
-    red "SOCKS5 连接无效，检查端口设置是否正确"
-  fi
 }
 
 # 是否创建面板corn定时任务
@@ -544,18 +532,32 @@ generate_config() {
       }
     },
     {
-      "tag": "socks-in",
-      "type": "socks",
+      "tag": "vless-reality-in",
+      "type": "vless",
       "listen": "::",
-      "listen_port": $socks_port,
+      "listen_port": $vless_port,
       "users": [
         {
-          "username": "$socks_user",
-          "password": "$socks_pass"
+          "uuid": "$vless_uuid",
+          "flow": "xtls-rprx-vision"
         }
-      ]
+      ],
+      "tls": {
+        "enabled": true,
+        "reality": {
+          "enabled": true,
+          "handshake": {
+            "server": "$reality_domain",
+            "server_port": 443
+          },
+          "private_key": "$(openssl ecparam -genkey -name prime256v1 -noout | base64 -w0)",
+          "short_id": ["$(openssl rand -hex 8)"]
+        }
+      },
+      "transport": {
+        "type": "tcp"
+      }
     }
-
  ],
     "outbounds": [
     {
