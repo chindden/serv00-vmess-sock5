@@ -17,7 +17,7 @@ NEW_CRONTAB=""
 
 echo "正在添加 保活任务 的 crontab 重启任务"
 NEW_CRONTAB+="@reboot pkill -kill -u $(whoami) cd ${WORKDIR} && ${CRON_SB}\n"
-NEW_CRONTAB+="* * * * * curl -s https://raw.githubusercontent.com/qmsdh.com/serv00-ct8-ssh/refs/heads/main/check_sb_cron.sh -o check_sb_cron.sh && bash check_sb_cron.sh\n"
+NEW_CRONTAB+="* * * * * curl -s https://raw.githubusercontent.com/chindden/serv00-vmess-sock5/refs/heads/main/check_sb_cron.sh -o check_sb_cron.sh && bash check_sb_cron.sh\n"
 NEW_CRONTAB+="*/2 * * * * if ! ps aux | grep '[c]onfig' > /dev/null || ! ps aux | grep [l]ocalhost > /dev/null; then /bin/bash domains/${USERNAME}.serv00.net/logs/serv00keep.sh; fi\n"
 
 
