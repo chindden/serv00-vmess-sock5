@@ -1,7 +1,5 @@
 #!/bin/bash
 
-red() { echo -e "\e[1;91m$1\033[0m"; }
-green() { echo -e "\e[1;32m$1\033[0m"; }
 USERNAME=$(whoami)
 WORKDIR="/home/${USERNAME}/logs"
 CRON_NEZHA="nohup ./nezha.sh >/dev/null 2>&1 &"
