@@ -28,7 +28,6 @@ export ARGO_AUTH=${ARGO_AUTH:-''}
 export vmess_port=${vmess_port:-'40000'}
 export hy2_port=${hy2_port:-'41000'}
 export vless_port=${vless_port:-'42000'}
-export reality_domain=${reality_domain:-'www.speedtest.net'}
 export CFIP=${CFIP:-'fan.yutian.us.kg'} 
 export CFPORT=${CFPORT:-'443'} 
 
@@ -47,7 +46,7 @@ REBOOT_URL="https://raw.githubusercontent.com/qmsdh/serv00-vmess-sock5/main/rebo
 
 # 安装singbox
 install_singbox() {
-echo -e "${yellow}本脚本同时四协议共存${purple}(vmess,vmess-ws-tls(argo),hysteria2,vless+reality)${re}"
+echo -e "${yellow}本脚本同时四协议共存${purple}(vmess,vmess-ws-tls(argo),hysteria2,vless-reality)${re}"
 echo -e "${yellow}开始运行前，请确保在面板${purple}已开放3个端口，两个tcp端口和一个udp端口${re}"
 echo -e "${yellow}面板${purple}Additional services中的Run your own applications${yellow}已开启为${purple}Enabled${yellow}状态${re}"
 green "安装完成后，可在用户根目录输入 \`bash sb00.sh\` 再次进入主菜单"
@@ -57,7 +56,7 @@ reading "\n确定继续安装吗？【y/n】: " choice
         cd "${WORKDIR}"
         read_vmess_port
         read_hy2_port
-        read_vless_reality_variables
+        read_vless_port
         argo_configure
         read_nz_variables
         generate_config
@@ -98,39 +97,17 @@ read_hy2_port() {
     done
 }
 
-# 设置 VLESS + Reality 端口、UUID 和伪装域名
-read_vless_reality_variables() {
+# 设置vless-reality端口
+read_vless_port() {
     while true; do
-        reading "请输入 VLESS + Reality 端口 (面板开放的 TCP 端口): " vless_port
+        reading "请输入vless-reality端口 (面板开放的tcp端口): " vless_port
         if [[ "$vless_port" =~ ^[0-9]+$ ]] && [ "$vless_port" -ge 1 ] && [ "$vless_port" -le 65535 ]; then
-            green "你的 VLESS + Reality 端口为: $vless_port"
+            green "你的vless-reality端口为: $vless_port"
             break
         else
-            yellow "输入错误，请重新输入面板开放的 TCP 端口"
+            yellow "输入错误，请重新输入面板开放的TCP端口"
         fi
     done
-
-    while true; do
-        reading "请输入 VLESS 的 UUID (留空将使用默认 UUID): " vless_uuid
-        if [[ -z "$vless_uuid" ]]; then
-            vless_uuid="$UUID"  # 使用默认的 UUID
-            green "你的 VLESS UUID 为: $vless_uuid"
-            break
-        elif [[ "$vless_uuid" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then
-            green "你的 VLESS UUID 为: $vless_uuid"
-            break
-        else
-            yellow "UUID 格式错误，请输入有效的 UUID"
-        fi
-    done
-
-    # 设置默认域名为 www.speedtest.net
-    default_domain="www.speedtest.net"
-    reading "请输入 Reality 的伪装域名 (留空将使用默认域名 $default_domain): " reality_domain
-    if [[ -z "$reality_domain" ]]; then
-        reality_domain="$default_domain"
-    fi
-    green "你的 Reality 伪装域名为: $reality_domain"
 }
 
 # 设置 argo 隧道域名、json 或 token
@@ -332,4 +309,364 @@ run_argo() {
        nohup ./argo.sh >/dev/null 2>&1 &
        sleep 2
           if pgrep -x 'bot' > /dev/null; then
-             green "ARGO
+             green "ARGO 已重启"
+          else
+             red "ARGO 重启失败"
+          fi
+    fi
+  else
+    red "ARGO 变量未设置"
+  fi
+}
+
+# 获取服务器ip，如果ip被墙，则自动获取服务器域名
+get_ip() {
+  ip=$(curl -s --max-time 2 ipv4.ip.sb)
+  if [ -z "$ip" ]; then
+    ip=$( [[ "$HOSTNAME" =~ s[0-9]\.serv00\.com ]] && echo "${HOSTNAME/s/mail}" || echo "$HOSTNAME" )
+  else
+    url="https://www.toolsdaquan.com/toolapi/public/ipchecking/$ip/443"
+    response=$(curl -s --location --max-time 3.5 --request GET "$url" --header 'Referer: https://www.toolsdaquan.com/ipcheck')
+    if [ -z "$response" ] || ! echo "$response" | grep -q '"icmp":"success"'; then
+        accessible=false
+    else
+        accessible=true
+    fi
+    if [ "$accessible" = false ]; then
+        ip=$( [[ "$HOSTNAME" =~ s[0-9]\.serv00\.com ]] && echo "${HOSTNAME/s/mail}" || echo "$ip" )
+    fi
+  fi
+  echo "$ip"
+}
+
+# 生成节点链接并写入到list.txt
+get_links(){
+argodomain=$(get_argodomain)
+echo -e "\e[1;32mArgoDomain:\e[1;35m${argodomain}\e[0m\n"
+sleep 1
+IP=$(get_ip)
+ISP=$(curl -s https://speed.cloudflare.com/meta | awk -F\" '{print $26"-"$18}' | sed -e 's/ /_/g') 
+sleep 1
+yellow "注意：v2ray或其他软件的跳过证书验证需设置为true,否则hy2或tuic节点可能不通\n"
+cat > list.txt <<EOF
+vmess://$(echo "{ \"v\": \"2\", \"ps\": \"$ISP\", \"add\": \"$IP\", \"port\": \"$vmess_port\", \"id\": \"$UUID\", \"aid\": \"0\", \"scy\": \"none\", \"net\": \"ws\", \"type\": \"none\", \"host\": \"\", \"path\": \"/vmess?ed=2048\", \"tls\": \"\", \"sni\": \"\", \"alpn\": \"\", \"fp\": \"\"}" | base64 -w0)
+
+vmess://$(echo "{ \"v\": \"2\", \"ps\": \"$ISP\", \"add\": \"$CFIP\", \"port\": \"$CFPORT\", \"id\": \"$UUID\", \"aid\": \"0\", \"scy\": \"none\", \"net\": \"ws\", \"type\": \"none\", \"host\": \"$argodomain\", \"path\": \"/vmess?ed=2048\", \"tls\": \"tls\", \"sni\": \"$argodomain\", \"alpn\": \"\", \"fp\": \"\"}" | base64 -w0)
+
+hysteria2://$UUID@$IP:$hy2_port/?sni=www.bing.com&alpn=h3&insecure=1#$ISP
+
+vless://$UUID@$IP:$vless_port?encryption=none&flow=xtls-rprx-vision&security=reality&sni=www.speedtest.net&fp=chrome&pbk=$(cat public_key.txt)&type=tcp&headerType=none#$ISP-reality
+EOF
+cat list.txt
+purple "\n$WORKDIR/list.txt 节点文件已保存"
+green "安装完成"
+sleep 2
+}
+
+# 是否创建面板corn定时任务
+creat_corn() {
+  reading "\n是否添加 crontab 守护进程的计划任务【y/n】: " choice
+    case "$choice" in
+        [Yy])
+	   bash <(curl -s ${CORN_URL})
+	   sleep 2
+           menu ;;
+        [Nn]) menu ;;
+        *) red "无效的选择，请重新输入 y 或 n" && creat_corn ;;
+    esac
+}
+
+# 卸载并重置服务器
+clean_all() {
+   echo ""
+   green "1. 仅卸载singbox"
+   echo  "----------------"
+   green "2. 重置整个服务器"
+   echo  "----------------"
+   yellow "0. 返回主菜单"
+   echo "----------------"
+   reading "\n请输入选择 (0-2): " choice
+   echo ""
+     case "${choice}" in
+        1) uninstall_singbox ;;
+        2) clean_all_files ;;
+        0) menu ;;
+        *) red "无效的选项，请输入 0-2" && clean_all ;;
+     esac
+}
+
+# 仅卸载 singbox
+uninstall_singbox() {
+  reading "\n确定要卸载吗？【y/n】: " choice
+    case "${choice}" in
+       [Yy])
+          kill -9 $(ps aux | grep '[w]eb' | awk '{print $2}')
+          kill -9 $(ps aux | grep '[b]ot' | awk '{print $2}')
+          kill -9 $(ps aux | grep '[n]pm' | awk '{print $2}')
+          rm -rf "${WORKDIR}"
+          ;;
+       [Nn]) menu ;;
+       *) red "无效的选择，请重新输入 y 或 n" && uninstall_singbox ;;
+    esac
+}
+
+# 一键重置服务器
+clean_all_files() {
+  reading "\n清理所有文件，重置服务器，确定继续吗？【y/n】: " choice
+    case "${choice}" in
+      [Yy])
+        ps aux | grep "$(whoami)" | grep -v "sshd\|bash\|grep" | awk '{print $2}' | xargs -r kill -9 > /dev/null 2>&1
+        chmod -R 755 ~/*
+        chmod -R 755 ~/.* 
+        rm -rf ~/.* 
+        rm -rf ~/*
+        sleep 2
+        green "清理已完成" ;;
+      [Nn]) menu ;; 
+      *) red "无效的选择，请重新输入 y 或 n" && menu ;;
+  esac
+}
+
+# 生成节点配置文件并解锁流媒体
+generate_config() {
+  openssl ecparam -genkey -name prime256v1 -out "private.key"
+  openssl req -new -x509 -days 3650 -key "private.key" -out "cert.pem" -subj "/CN=${USERNAME}.serv00.net"
+  cat > config.json << EOF
+{
+  "log": {
+    "disabled": true,
+    "level": "info",
+    "timestamp": true
+  },
+  "dns": {
+    "servers": [
+      {
+        "tag": "google",
+        "address": "tls://8.8.8.8",
+        "strategy": "ipv4_only",
+        "detour": "direct"
+      }
+    ],
+    "rules": [
+      {
+        "rule_set": [
+          "geosite-openai"
+        ],
+        "server": "wireguard"
+      },
+      {
+        "rule_set": [
+          "geosite-netflix"
+        ],
+        "server": "wireguard"
+      },
+      {
+        "rule_set": [
+          "geosite-category-ads-all"
+        ],
+        "server": "block"
+      }
+    ],
+    "final": "google",
+    "strategy": "",
+    "disable_cache": false,
+    "disable_expire": false
+  },
+    "inbounds": [
+    {
+       "tag": "hysteria-in",
+       "type": "hysteria2",
+       "listen": "::",
+       "listen_port": $hy2_port,
+       "users": [
+         {
+             "password": "$UUID"
+         }
+     ],
+     "masquerade": "https://bing.com",
+     "tls": {
+         "enabled": true,
+         "alpn": [
+             "h3"
+         ],
+         "certificate_path": "cert.pem",
+         "key_path": "private.key"
+        }
+    },
+    {
+      "tag": "vmess-ws-in",
+      "type": "vmess",
+      "listen": "::",
+      "listen_port": $vmess_port,
+      "users": [
+      {
+        "uuid": "$UUID"
+      }
+    ],
+    "transport": {
+      "type": "ws",
+      "path": "/vmess",
+      "early_data_header_name": "Sec-WebSocket-Protocol"
+      }
+    },
+    {
+        "tag": "vless-reality-vesion",
+        "type": "vless",
+        "listen": "::",
+        "listen_port": $vless_port,
+        "users": [
+            {
+              "uuid": "$UUID",
+              "flow": "xtls-rprx-vision"
+            }
+        ],
+        "tls": {
+            "enabled": true,
+            "server_name": "www.speedtest.net",
+            "reality": {
+                "enabled": true,
+                "handshake": {
+                    "server": "www.speedtest.net",
+                    "server_port": 443
+                },
+                "private_key": "$(cat private_key.txt)",
+                "short_id": [
+                  ""
+                ]
+            }
+        }
+    }
+ ],
+    "outbounds": [
+    {
+      "type": "direct",
+      "tag": "direct"
+    },
+    {
+      "type": "block",
+      "tag": "block"
+    },
+    {
+      "type": "dns",
+      "tag": "dns-out"
+    },
+    {
+      "type": "wireguard",
+      "tag": "wireguard",
+      "server": "162.159.195.100",
+      "server_port": 4500,
+      "local_address": [
+        "172.16.0.2/32",
+        "2606:4700:110:83c7:b31f:5858:b3a8:c6b1/128"
+      ],
+      "private_key": "mPZo+V9qlrMGCZ7+E6z2NI6NOV34PD++TpAR09PtCWI=",
+      "peer_public_key": "bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=",
+      "reserved": [
+        26,
+        21,
+        228
+      ]
+    }
+  ],
+  "route": {
+    "rules": [
+      {
+        "protocol": "dns",
+        "outbound": "dns-out"
+      },
+      {
+        "ip_is_private": true,
+        "outbound": "direct"
+      },
+      {
+        "rule_set": [
+          "geosite-openai"
+        ],
+        "outbound": "wireguard"
+      },
+      {
+        "rule_set": [
+          "geosite-netflix"
+        ],
+        "outbound": "wireguard"
+      },
+      {
+        "rule_set": [
+          "geosite-category-ads-all"
+        ],
+        "outbound": "block"
+      }
+    ],
+    "rule_set": [
+      {
+        "tag": "geosite-netflix",
+        "type": "remote",
+        "format": "binary",
+        "url": "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-netflix.srs",
+        "download_detour": "direct"
+      },
+      {
+        "tag": "geosite-openai",
+        "type": "remote",
+        "format": "binary",
+        "url": "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/openai.srs",
+        "download_detour": "direct"
+      },      
+      {
+        "tag": "geosite-category-ads-all",
+        "type": "remote",
+        "format": "binary",
+        "url": "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-category-ads-all.srs",
+        "download_detour": "direct"
+      }
+    ],
+    "final": "direct"
+   },
+   "experimental": {
+      "cache_file": {
+      "path": "cache.db",
+      "cache_id": "mycacheid",
+      "store_fakeip": true
+    }
+  }
+}
+EOF
+}
+
+#主菜单
+menu() {
+   clear
+   echo ""
+   purple "--- Serv00|ct8 qmsdh.com三改，yutian81二改 sing-box一键脚本 ---\n"
+   echo -e "${green}原作者为老王：${re}${yellow}https://github.com/eooce/Sing-box${re}\n"
+   echo -e "${green}由 秋名山 qmsdh.com 三改，yutian81二改：${re}${yellow}https://github.com/qmsdh/serv00-vmess-sock5 \n"
+   echo -e "${green}秋名山温馨提示：记得GitHub Action保活！\n"
+   purple "转载请著名出处，请勿滥用\n"
+   red "1. 安装sing-box"
+   echo  "----------------"
+   red "2. 卸载或清理服务器"
+   echo  "----------------"
+   green "3. 查看节点信息"
+   echo  "----------------"
+   green "4. 重启所有进程"
+   echo  "----------------"
+   yellow "5. 写入面板CORN任务"
+   echo  "----------------"
+   yellow "6. 更新最新脚本"
+   echo  "----------------"
+   red "0. 退出脚本"
+   echo "----------------"
+   reading "请输入选择(0-6): " choice
+   echo ""
+    case "${choice}" in
+        1) install_singbox ;;
+        2) clean_all ;; 
+        3) cat ${WORKDIR}/list.txt ;; 
+        4) bash <(curl -s ${REBOOT_URL}) ;;
+        5) creat_corn ;;
+        6) curl -s ${UPDATA_URL} -o sb00.sh && chmod +x sb00.sh && ./sb00.sh ;;
+        0) exit 0 ;;
+        *) red "无效的选项，请输入 0 到 6" && menu ;;
+    esac
+}
+menu
