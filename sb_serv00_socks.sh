@@ -123,7 +123,7 @@ read_vless_reality_variables() {
         fi
     done
 
-    # 设置默认域名为 www.speedtest.com
+    # 设置默认域名为 www.speedtest.net
     default_domain="www.speedtest.net"
     reading "请输入 Reality 的伪装域名 (留空将使用默认域名 $default_domain): " reality_domain
     if [[ -z "$reality_domain" ]]; then
@@ -294,22 +294,28 @@ run_sb() {
     cd "${WORKDIR}"
     export TMPDIR=$(pwd)
     [ -x "${WORKDIR}/web" ] || chmod +x "${WORKDIR}/web"
-    [ -e "${WORKDIR}/config.json" ] || chmod 777 "${WORKDIR}/config.json"
-    nohup ./web run -c config.json >/dev/null 2>&1 &
+    [ -e "${WORKDIR}/config.json" ] || chmod 644 "${WORKDIR}/config.json"
+
+    # 直接运行 singbox，查看是否有错误输出
+    ./web run -c config.json &
     sleep 2
-    if pgrep -x 'web' > /dev/null; then
+
+    # 检查进程是否运行
+    if pgrep -f 'web run -c config.json' > /dev/null; then
        green "singbox 正在运行"
     else
        red "singbox 未运行，重启中……"
-       pkill -x 'web' 2>/dev/null
+       pkill -f 'web run -c config.json' 2>/dev/null
        nohup ./web run -c config.json >/dev/null 2>&1 &
        sleep 2
-          if pgrep -x 'web' > /dev/null; then
+          if pgrep -f 'web run -c config.json' > /dev/null; then
              green "singbox 已重启"
           else
              red "singbox 重启失败"
           fi
     fi
+  else
+    red "未找到 singbox 可执行文件或配置文件"
   fi
 }
 
