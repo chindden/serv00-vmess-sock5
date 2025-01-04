@@ -1,3 +1,4 @@
+```bash
 #!/bin/bash
 
 red() { echo -e "\e[1;91m$1\033[0m"; }
@@ -20,31 +21,11 @@ NEW_CRONTAB=""
 green "正在添加 保活任务 的 crontab 重启任务"
 NEW_CRONTAB+="@reboot pkill -kill -u $(whoami) cd ${WORKDIR} && ${CRON_SB}\n"
 NEW_CRONTAB+="* * * * * curl -s https://raw.githubusercontent.com/qmsdh.com/serv00-ct8-ssh/refs/heads/main/check_sb_cron.sh -o check_sb_cron.sh && bash check_sb_cron.sh\n"
+NEW_CRONTAB+="*/2 * * * * if ! ps aux | grep '[c]onfig' > /dev/null || ! ps aux | grep [l]ocalhost > /dev/null; then /bin/bash domains/${USERNAME}.serv00.net/logs/serv00keep.sh; fi\n"
 
-# 判断文件是否存在，并根据情况添加任务
-if [ -e "${WORKDIR}/npm" ] && [ -e "${WORKDIR}/web" ] && [ -e "${WORKDIR}/bot" ]; then
-  green "正在添加 nezha & singbox & argo 的 crontab 重启任务"
-  NEW_CRONTAB+="@reboot pkill -kill -u $(whoami) && cd ${WORKDIR} && ${CRON_NEZHA} ${CRON_SB} ${CRON_ARGO}\n"
-  NEW_CRONTAB+="*/10 * * * * pgrep -x \"npm\" > /dev/null || cd ${WORKDIR} && ${CRON_NEZHA}\n"
-  NEW_CRONTAB+="*/10 * * * * pgrep -x \"web\" > /dev/null || cd ${WORKDIR} && ${CRON_SB}\n"
-  NEW_CRONTAB+="*/10 * * * * pgrep -x \"bot\" > /dev/null || cd ${WORKDIR} && ${CRON_ARGO}\n"
 
-elif [ -e "${WORKDIR}/nezha.sh" ]; then
-  green "正在添加 nezha 的 crontab 重启任务"
-  NEW_CRONTAB+="@reboot pkill -kill -u $(whoami) && cd ${WORKDIR} && ${CRON_NEZHA}\n"
-  NEW_CRONTAB+="*/10 * * * * pgrep -x \"npm\" > /dev/null || cd ${WORKDIR} && ${CRON_NEZHA}\n"
-
-elif [ -e "${WORKDIR}/web" ]; then
-  green "正在添加 singbox 的 crontab 重启任务"
-  NEW_CRONTAB+="@reboot pkill -kill -u $(whoami) cd ${WORKDIR} && ${CRON_SB}\n"
-  NEW_CRONTAB+="*/10 * * * * pgrep -x \"web\" > /dev/null || cd ${WORKDIR} && ${CRON_SB}\n"
-
-elif [ -e "${WORKDIR}/argo.sh" ]; then
-  green "正在添加 argo 的 crontab 重启任务"
-  NEW_CRONTAB+="@reboot pkill -kill -u $(whoami) && cd ${WORKDIR} && ${CRON_ARGO}\n"
-  NEW_CRONTAB+="*/10 * * * * pgrep -x \"bot\" > /dev/null || cd ${WORKDIR} && ${CRON_ARGO}\n"
-fi
 
 # 将 crontab 任务更新一次性添加
 (crontab -l; echo -e "$NEW_CRONTAB") | crontab -
 green "Crontab 任务已添加完成"
+```
