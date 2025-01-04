@@ -19,7 +19,7 @@ serv00 专门的添加cron任务的任务每分钟执行添加所有cron任务�
 
 在 Serv00 和 CT8 机器上一步到位地安装和配置 vmess+vmess&argo+socks5+哪吒探针，socks5 可用于 cmliu/edgetunnel 项目的`SOCKS5`变量实现反代，帮助解锁 ChatGPT 等服务。
 
-通过 GitHub 自带的 action 功能，使服务器面板的 corn 定时任务保持，而 corn 则使节点进程保持活跃，从而实现节点保活。（必须GitHub Action保活！否则serv00会杀进程！节点将无法使用！）
+通过 GitHub 自带的 action 功能，使服务器面板的 corn 定时任务保持，而 corn 则使节点进程保持活跃，从而实现节点保活。（必须GitHub Action保活！否则serv00有可能会杀进程和Cron任务！节点将无法使用！）
 
 ## 项目借鉴
 - 老王的四合一节点,[仓库地址](https://github.com/eooce/Sing-box)  
