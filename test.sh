@@ -82,7 +82,7 @@ read_ports() {
     done
     while true; do
         reading "请输入 Hysteria2 端口 (建议默认 443): " hy2_port
-        if [[ "$hy2_port" =~ ^[0-9]+$ ]] && [ "$hy2_port" -ge 1 ] && [ "$hy2_port" -le 65535 ]]; then
+        if [[ "$hy2_port" =~ ^[0-9]+$ ]] && [ "$hy2_port" -ge 1 ] && [ "$hy2_port" -le 65535 ]; then
             green "你的 Hysteria2 端口为: $hy2_port"
             break
         else
