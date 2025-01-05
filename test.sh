@@ -21,17 +21,13 @@ USERNAME=$(whoami)
 HOSTNAME=$(hostname)
 WORKDIR="/home/${USERNAME}/logs"
 
-# 确保 WORKDIR 存在
-mkdir -p "${WORKDIR}" || {
-  red "无法创建目录: ${WORKDIR}"
-  exit 1
-}
-chmod -R 755 "${WORKDIR}"
+[ -d "${WORKDIR}" ] || (mkdir -p "${WORKDIR}" && chmod -R 755 "${WORKDIR}")
 
 # =============================
 # 默认变量
 # =============================
 export LC_ALL=C
+# 可在脚本外自行 export 定义这些变量，若无则使用默认
 export UUID=${UUID:-'5195c04a-552f-4f9e-8bf9-216d257c0839'}
 export NEZHA_SERVER=${NEZHA_SERVER:-'nezha.yutian81.top'}
 export NEZHA_PORT=${NEZHA_PORT:-'5555'}
@@ -271,16 +267,19 @@ generate_config() {
   openssl ecparam -genkey -name prime256v1 -out "private.key"
   openssl req -new -x509 -days 3650 -key "private.key" -out "cert.pem" -subj "/CN=${USERNAME}.serv00.net"
 
-  # 生成 VLESS Reality 私钥/公钥
-  output=$(./web generate reality-keypair 2>/dev/null)
-  if [[ -n "$output" ]]; then
-    private_key=$(echo "$output" | awk '/PrivateKey:/ {print $2}')
-    public_key=$(echo "$output" | awk '/PublicKey:/ {print $2}')
-    shortId=$(echo "$output" | awk '/ShortId:/ {print $2}')
+  # 生成 VLESS Reality 私钥/公钥(若需自定义可改)
+  # sing-box本身可生成 reality-keypair: ./web generate reality-keypair
+  # 这里脚本自动生成后抓取
+  rkp_output=$("./web" generate reality-keypair 2>/dev/null)
+  # 如果生成失败，则使用默认; 否则提取
+  if [[ -n "$rkp_output" ]]; then
+    reality_privateKey=$(echo "$rkp_output" | grep 'PrivateKey' | awk -F': ' '{print $2}' | xargs)
+    reality_publicKey=$(echo "$rkp_output" | grep 'PublicKey' | awk -F': ' '{print $2}' | xargs)
+    shortId=$(echo "$rkp_output" | grep 'ShortId' | awk -F': ' '{print $2}' | xargs)
   else
-    # 如果生成失败，使用默认值
-    private_key="cHSai02ALrhu4KWuVC3pv3dGnSxK60pyaC6Bq4PdM24"
-    public_key="NLygiSTmCl7QE+34nKZgVfpePtwE4WUBNDeEY89gB3c="
+    # 若生成失败则给定固定值(仅演示)
+    reality_privateKey="cHSai02ALrhu4KWuVC3pv3dGnSxK60pyaC6Bq4PdM24"
+    reality_publicKey="NLygiSTmCl7QE+34nKZgVfpePtwE4WUBNDeEY89gB3c="
     shortId="112233445566"
   fi
 
@@ -373,7 +372,7 @@ generate_config() {
             "server": "www.bing.com",
             "server_port": 443
           },
-          "private_key": "${private_key}",
+          "private_key": "${reality_privateKey}",
           "short_id": "${shortId}"
         }
       }
@@ -466,7 +465,7 @@ EOF
 
   green "config.json 生成完毕！"
   # 把 realityPublicKey 写入记录(后面 get_links 用)
-  echo "${public_key}" > reality_pub.key
+  echo "${reality_publicKey}" > reality_pub.key
   echo "${shortId}" > reality_shortid.txt
 }
 
@@ -508,13 +507,12 @@ run_singbox() {
   if [[ -f "${WORKDIR}/web" && -f "${WORKDIR}/config.json" ]]; then
     purple "启动 SingBox ..."
     pkill -9 web 2>/dev/null
-    nohup ./web run -c config.json >${WORKDIR}/singbox.log 2>&1 &
+    nohup ./web run -c config.json >/dev/null 2>&1 &
     sleep 2
     if pgrep -x web >/dev/null; then
       green "SingBox 已启动"
     else
-      red "SingBox 启动失败，请查看日志: ${WORKDIR}/singbox.log"
-      cat ${WORKDIR}/singbox.log
+      red "SingBox 启动失败"
     fi
   else
     red "SingBox 文件或 config.json 不存在"
@@ -560,6 +558,7 @@ get_links() {
   local hy2_link="hysteria2://$UUID@$ip:$hy2_port/?sni=www.bing.com&alpn=h3&insecure=1#$ISP"
 
   # VLESS Reality
+  # 需重点: "security=reality" + "flow=xtls-rprx-vision" + "pbk=" + "sid="
   local vless_link="vless://$UUID@$ip:$vless_port?encryption=none&security=reality&sni=www.bing.com&flow=xtls-rprx-vision&pbk=$realityPublicKey&sid=$shortId&spx=%2F#$ISP"
 
   cat > list.txt << EOF
@@ -639,7 +638,7 @@ uninstall_singbox() {
 
 clean_all_files() {
   reading "清理所有文件并重置服务器，确定继续吗？【y/n】: " choice
-  case "$choice" in
+  case "${choice}" in
     [Yy])
       pkill -9 -u "$(whoami)" 2>/dev/null
       chmod -R 755 ~/*
