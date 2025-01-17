@@ -13,7 +13,7 @@ jobs:
     # RES：n表示每次不重置部署，y表示每次重置部署。SSH_USER表示用户名。SSH_PASS表示密码。REALITY表示reality域名(用户名.serv00.net)。SUUID表示uuid。TCP1_PORT表示vless的tcp端口。TCP2_PORT表示vmess的tcp端口。UDP_PORT表示hy2的udp端口。HOST表示登录服务器域名。ARGO_DOMAIN表示argo固定域名，临时域名留空。ARGO_AUTH表示argo固定域名token，临时域名留空
     # 每行一个{serv00服务器}，末尾用,间隔
       ACCOUNTS: >
-        [{"RES": "n","SSH_USER": "duolihao","SSH_PASS": "#%yyepW0TfMljXlT5PU#","REALITY": "www.wto.org","SUUID": "chindden","TCP1_PORT": "19001","TCP2_PORT": "19002","UDP_PORT": "19003","HOST": "s16.serv00.com","ARGO_DOMAIN": "gou.tida.us.kg","ARGO_AUTH": "{"AccountTag":"6316c7f5a37a7b20d692673a64c528be","TunnelSecret":"isAIIOY8qfK6RnhUXpJqnp0Rg+T7zPNA9yz1r6/Mh/k=","TunnelID":"e6f69f86-78d9-47a0-a04b-8dfea01881d2"}"]
+       ${{ secrets.ACCOUNTS00 }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v2
