@@ -13,8 +13,7 @@ jobs:
     # RES：n表示每次不重置部署，y表示每次重置部署。SSH_USER表示用户名。SSH_PASS表示密码。REALITY表示reality域名(用户名.serv00.net)。SUUID表示uuid。TCP1_PORT表示vless的tcp端口。TCP2_PORT表示vmess的tcp端口。UDP_PORT表示hy2的udp端口。HOST表示登录服务器域名。ARGO_DOMAIN表示argo固定域名，临时域名留空。ARGO_AUTH表示argo固定域名token，临时域名留空
     # 每行一个{serv00服务器}，末尾用,间隔
       ACCOUNTS: >
-        [
-  {
+        [{
     "RES": "n",
     "SSH_USER": "duolihao",
     "SSH_PASS": "#%yyepW0TfMljXlT5PU#",
