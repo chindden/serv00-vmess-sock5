@@ -11,6 +11,13 @@ jobs:
     env:
       ACCOUNTS: ${{ secrets.ACCOUNTS00 }}
     steps:
+      - name: Get ACCOUNTS_JSON
+        id: get-accounts
+        run: |
+          echo "$ACCOUNTS_JSON" > accounts.json
+        env:
+          ACCOUNTS_JSON: ${{ secrets.ACCOUNTS00 }}
+
       - name: Checkout Repository
         uses: actions/checkout@v2
 
